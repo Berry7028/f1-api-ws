@@ -1,26 +1,26 @@
 # f1-api-ws
 
-Este proyecto es un backend que actúa como un espejo de WebSocket para datos de Fórmula 1. La funcionalidad principal consiste en conectarse a un WebSocket fuente de datos de F1, almacenar la información recibida en variables internas, y luego retransmitir estos datos a los clientes que se conectan a nuestro propio WebSocket.
+このプロジェクトは、F1データのWebSocketミラーとして動作するバックエンドです。主な機能は、F1のデータソースWebSocketに接続し、受信した情報を内部変数に保存し、それらのデータを独自のWebSocketに接続したクライアントへ再送信することです。
 
-## Descripción general
+## 概要
 
-- **Entrada:** Datos provenientes de un WebSocket de terceros (por ejemplo, el feed oficial o no oficial de Fórmula 1).
-- **Procesamiento:** Los datos recibidos se almacenan y actualizan en variables internas usando una lógica de fusión profunda (`deepMerge`), permitiendo actualizar solo las partes relevantes de la estructura de datos sin sobrescribir completamente el estado anterior.
-- **Salida:** Los datos actualizados se ponen a disposición de los oyentes/clientes que se conectan a este backend vía WebSocket.
+- **入力:** サードパーティのWebSocket（例：公式または非公式のF1フィード）からのデータ。
+- **処理:** 受信したデータは、`deepMerge`（ディープマージ）ロジックを使って内部変数に保存・更新されます。これにより、データ構造の関連部分のみを更新し、以前の状態を完全に上書きせずに済みます。
+- **出力:** 更新されたデータは、このバックエンドのWebSocketに接続したリスナー／クライアントに提供されます。
 
 ---
 
-## ¿Cómo se almacena la información?
+## 情報はどのように保存されるか？
 
-Cada vez que se recibe un mensaje del WebSocket de Fórmula 1, no se reemplaza completamente la variable que contiene el estado de la información, sino que se realiza una **fusión profunda** (“deep merge”). Esto permite:
+F1のWebSocketからメッセージを受信するたびに、情報状態を保持する変数が完全に置き換えられるのではなく、**ディープマージ**（deep merge）が行われます。これにより、以下が可能になります：
 
-- Conservar los valores ya recibidos anteriormente que no hayan cambiado.
-- Actualizar solo las partes del objeto que hayan sido modificadas en el nuevo mensaje.
-- Evitar la pérdida de información parcial si los eventos/mensajes son incrementales.
+- 変更されていない既存の値を保持できる
+- 新しいメッセージで変更されたオブジェクトの部分のみを更新できる
+- イベント／メッセージが増分的な場合でも、部分的な情報損失を防げる
 
-### Ejemplo de `deepMerge`
+### `deepMerge`の例
 
-Supón que tienes el siguiente estado almacenado:
+例えば、次のような状態が保存されているとします：
 
 ```js
 let estado = {
@@ -32,7 +32,7 @@ let estado = {
 };
 ```
 
-Y recibes un nuevo mensaje solo con información actualizada del auto 1:
+そして、車1の更新情報だけを含む新しいメッセージを受信した場合：
 
 ```js
 let incoming = {
@@ -42,7 +42,7 @@ let incoming = {
 };
 ```
 
-Usando `deepMerge(estado, incoming)`, el resultado sería:
+`deepMerge(estado, incoming)`を使うと、結果は次のようになります：
 
 ```js
 {
@@ -54,15 +54,15 @@ Usando `deepMerge(estado, incoming)`, el resultado sería:
 }
 ```
 
-De esta forma, la información que no se incluyó en el mensaje entrante (por ejemplo, `rpm` de `car1`) se conserva.
+このように、受信メッセージに含まれていない情報（例：`car1`の`rpm`）は保持されます。
 
 ---
 
-## Función `deepMerge`
+## `deepMerge`関数
 
-La función `deepMerge` es clave en el almacenamiento eficiente de la información. Su objetivo es combinar de manera recursiva los objetos, manteniendo los valores anteriores si no han sido sobrescritos.
+`deepMerge`関数は、効率的な情報保存の要です。目的は、オブジェクトを再帰的に結合し、上書きされていない値を保持することです。
 
-### Ejemplo básico de implementación
+### 基本的な実装例
 
 ```js
 function deepMerge(target, source) {
@@ -82,6 +82,6 @@ function deepMerge(target, source) {
 }
 ```
 
-Esta función asegura que los objetos anidados se actualicen correctamente y que no se pierda información.
+この関数により、ネストされたオブジェクトも正しく更新され、情報の損失を防ぐことができます。
 
 ---
