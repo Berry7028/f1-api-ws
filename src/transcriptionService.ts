@@ -1,15 +1,10 @@
-import { AssemblyAI } from "assemblyai";
-
-function sleep(ms: number) {
-  return new Promise((res) => setTimeout(res, ms));
-}
+import OpenAI, { toFile } from "openai";
+import axios from "axios";
 
 class TranscriptionService {
-  private client: AssemblyAI;
-  private readonly pollInterval = 1200; // ms
-  private readonly timeout = 2 * 60 * 1000; // 2 minutes
+  private client: OpenAI;
   private readonly audioPrefix = "https://livetiming.formula1.com/static/";
-  private backoffMs: number = 12000;
+  private backoffMs: number = 3000;
   private queue: Array<{
     call: () => Promise<any>;
     resolve: (v: any) => void;
@@ -21,10 +16,10 @@ class TranscriptionService {
   private backoffPromise: Promise<void> | null = null;
 
   constructor(apiKey?: string) {
-    const key = apiKey ?? process.env.ASSEMBLYAI_API_KEY;
+    const key = apiKey ?? process.env.OPENAI_API_KEY;
     if (!key)
-      throw new Error("AssemblyAI API key not provided (ASSEMBLYAI_API_KEY)");
-    this.client = new AssemblyAI({ apiKey: key });
+      throw new Error("OpenAI API key not provided (OPENAI_API_KEY)");
+    this.client = new OpenAI({ apiKey: key });
   }
 
   private enqueueApiCall<T>(call: () => Promise<T>): Promise<T> {
@@ -81,33 +76,24 @@ class TranscriptionService {
   async transcribe(audioPath: string): Promise<string> {
     return this.enqueueApiCall(async () => {
       try {
-        const path = this.audioPrefix + audioPath;
-        const job = await this.client.transcripts.transcribe({
-          audio: path,
-          speech_model: "universal",
+        const url = this.audioPrefix + audioPath;
+
+        // Download audio file as buffer
+        const response = await axios.get(url, { responseType: "arraybuffer" });
+        const audioBuffer = Buffer.from(response.data);
+
+        // Create a file object compatible with OpenAI API in Node.js
+        const file = await toFile(audioBuffer, "audio.mp3", {
+          type: "audio/mpeg",
         });
 
-        const id = (job as any).id ?? job;
-        if (!id) {
-          return (job as any).text ?? "";
-        }
+        // Use OpenAI Whisper for transcription
+        const transcription = await this.client.audio.transcriptions.create({
+          file: file,
+          model: "whisper-1",
+        });
 
-        const start = Date.now();
-        while (Date.now() - start < this.timeout) {
-          const statusObj: any = await this.client.transcripts.get(id);
-          const status = statusObj?.status;
-          if (status === "completed") {
-            return statusObj?.text ?? "";
-          }
-          if (status === "error") {
-            console.warn("AssemblyAI transcript error:", statusObj?.error);
-            return "";
-          }
-          await sleep(this.pollInterval);
-        }
-
-        console.warn("AssemblyAI transcription timed out for:", audioPath);
-        return "";
+        return transcription.text ?? "";
       } catch (err) {
         console.error("Transcription error:", err);
         throw err;

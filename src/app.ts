@@ -23,7 +23,7 @@ async function main() {
   app.use("/", router);
 
   const translationService = new TranslationService(); // Translation service using Gemini API.
-  const transcriptionService = new TranscriptionService(); // Transcription service using AssemblyAI API.
+  const transcriptionService = new TranscriptionService(); // Transcription service using OpenAI Whisper API.
   const redisClient = new RedisClient(); // Redis client for storing and retrieving data.
 
   const stateProcessor = new StateProcessor(redisClient); // Processes and maintains the state of the current session.
